@@ -3,7 +3,7 @@ enterprise_pji:
   outputs:
     dev:
       type: duckdb
-      path: /tmp/pji_analytics.duckdb
+      path: /data/duckdb/pji_analytics.duckdb
       extensions:
         - iceberg
         - httpfs

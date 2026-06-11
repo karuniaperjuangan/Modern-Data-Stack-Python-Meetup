@@ -10,7 +10,7 @@ st.markdown("---")
 
 try:
     # Read overall KPIs
-    kpi_df = query_df("SELECT * FROM marts.mart_executive_summary LIMIT 1;")
+    kpi_df = query_df("SELECT * FROM mart_executive_summary LIMIT 1;")
     
     if not kpi_df.empty:
         total_rev = kpi_df['total_revenue'].iloc[0]
@@ -25,7 +25,7 @@ try:
         c4.metric("Status Operasional", "Sehat")
     
     # 1. 12-month Trend Chart
-    trend_df = query_df("SELECT sales_month, total_revenue, ecommerce_revenue FROM marts.mart_executive_summary ORDER BY sales_month ASC;")
+    trend_df = query_df("SELECT sales_month, total_revenue, ecommerce_revenue FROM mart_executive_summary ORDER BY sales_month ASC;")
     trend_df['sales_month'] = pd.to_datetime(trend_df['sales_month']).dt.strftime('%b %Y')
     
     fig_trend = px.line(
@@ -55,7 +55,7 @@ try:
     fig_region.update_layout(template="plotly_dark")
     col1.plotly_chart(fig_region, use_container_width=True)
     
-    brand_df = query_df("SELECT brand, SUM(total_revenue) as revenue FROM marts.mart_brand_performance GROUP BY 1;")
+    brand_df = query_df("SELECT brand, SUM(total_revenue) as revenue FROM mart_brand_performance GROUP BY 1;")
     fig_brand = px.pie(
         brand_df,
         values="revenue",

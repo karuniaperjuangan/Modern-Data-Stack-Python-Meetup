@@ -8,7 +8,7 @@ st.title("📦 Analisis Inventori Gudang & Dead Stock")
 st.markdown("---")
 
 try:
-    inv_df = query_df("SELECT * FROM marts.mart_inventory_optimization;")
+    inv_df = query_df("SELECT * FROM mart_inventory_optimization;")
     
     # Dead stock calculations
     dead_stock = inv_df[inv_df['dead_stock_flag'] == True]
@@ -40,7 +40,7 @@ try:
     col1.plotly_chart(fig_age, use_container_width=True)
     
     # 2. Stock Value per plant
-    plant_val = query_df("SELECT plant, SUM(inventory_value) as val FROM marts.mart_inventory_optimization GROUP BY 1;")
+    plant_val = query_df("SELECT plant, SUM(inventory_value) as val FROM mart_inventory_optimization GROUP BY 1;")
     fig_val = px.bar(
         plant_val,
         x="plant",

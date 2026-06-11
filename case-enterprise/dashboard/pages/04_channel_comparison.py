@@ -28,7 +28,7 @@ try:
     col1.plotly_chart(fig_mix, use_container_width=True)
     
     # 2. Cumulative share chart
-    cum_channel = query_df("SELECT channel, SUM(monthly_revenue) as rev FROM marts.mart_channel_comparison GROUP BY 1;")
+    cum_channel = query_df("SELECT channel, SUM(monthly_revenue) as rev FROM mart_channel_comparison GROUP BY 1;")
     fig_cum = px.pie(
         cum_channel,
         values="rev",

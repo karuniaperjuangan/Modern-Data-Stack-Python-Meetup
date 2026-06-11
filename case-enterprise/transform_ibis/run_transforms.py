@@ -10,7 +10,7 @@ def main():
     
     # We will connect Ibis to the temporary analytics duckdb database
     # Which was generated and used by dbt in /tmp/pji_analytics.duckdb
-    db_path = "/tmp/pji_analytics.duckdb"
+    db_path = "/data/duckdb/pji_analytics.duckdb"
     
     con = ibis.duckdb.connect(db_path)
     

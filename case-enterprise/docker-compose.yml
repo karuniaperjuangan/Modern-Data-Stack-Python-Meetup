@@ -140,6 +140,7 @@ services:
       - PYICEBERG_CATALOG__DEFAULT__S3__ENDPOINT=${PYICEBERG_CATALOG__DEFAULT__S3__ENDPOINT}
       - PYICEBERG_CATALOG__DEFAULT__S3__ACCESS_KEY_ID=${PYICEBERG_CATALOG__DEFAULT__S3__ACCESS_KEY_ID}
       - PYICEBERG_CATALOG__DEFAULT__S3__SECRET_ACCESS_KEY=${PYICEBERG_CATALOG__DEFAULT__S3__SECRET_ACCESS_KEY}
+      - DLT_PROJECT_DIR=/opt/airflow/dlt_pipelines
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./dlt_pipelines:/opt/airflow/dlt_pipelines
@@ -147,6 +148,7 @@ services:
       - ./transform_ibis:/opt/airflow/transform_ibis
       - ./seed:/opt/airflow/seed
       - airflow_logs:/opt/airflow/logs
+      - duckdb_data:/data/duckdb
     networks:
       - enterprise_network
 
@@ -177,6 +179,7 @@ services:
       - PYICEBERG_CATALOG__DEFAULT__S3__ENDPOINT=${PYICEBERG_CATALOG__DEFAULT__S3__ENDPOINT}
       - PYICEBERG_CATALOG__DEFAULT__S3__ACCESS_KEY_ID=${PYICEBERG_CATALOG__DEFAULT__S3__ACCESS_KEY_ID}
       - PYICEBERG_CATALOG__DEFAULT__S3__SECRET_ACCESS_KEY=${PYICEBERG_CATALOG__DEFAULT__S3__SECRET_ACCESS_KEY}
+      - DLT_PROJECT_DIR=/opt/airflow/dlt_pipelines
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./dlt_pipelines:/opt/airflow/dlt_pipelines
@@ -184,6 +187,7 @@ services:
       - ./transform_ibis:/opt/airflow/transform_ibis
       - ./seed:/opt/airflow/seed
       - airflow_logs:/opt/airflow/logs
+      - duckdb_data:/data/duckdb
     networks:
       - enterprise_network
 
@@ -207,6 +211,7 @@ services:
       - PYICEBERG_CATALOG__DEFAULT__S3__SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD}
     volumes:
       - ./dashboard:/app
+      - duckdb_data:/data/duckdb
     networks:
       - enterprise_network
 
@@ -215,6 +220,7 @@ volumes:
   minio_data:
   airflow_pg_data:
   airflow_logs:
+  duckdb_data:
 
 networks:
   enterprise_network:

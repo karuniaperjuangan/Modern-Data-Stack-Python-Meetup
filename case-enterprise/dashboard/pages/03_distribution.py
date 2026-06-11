@@ -8,7 +8,7 @@ st.title("🚚 Evaluasi Jaringan Distribusi")
 st.markdown("---")
 
 try:
-    dist_df = query_df("SELECT * FROM marts.mart_distribution_network;")
+    dist_df = query_df("SELECT * FROM mart_distribution_network;")
     
     col1, col2 = st.columns(2)
     

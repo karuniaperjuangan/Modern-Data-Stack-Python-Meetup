@@ -8,7 +8,7 @@ st.title("🏷️ Analitik Kinerja Brand & Kategori")
 st.markdown("---")
 
 try:
-    brand_df = query_df("SELECT * FROM marts.mart_brand_performance;")
+    brand_df = query_df("SELECT * FROM mart_brand_performance;")
     
     col1, col2 = st.columns(2)
     
