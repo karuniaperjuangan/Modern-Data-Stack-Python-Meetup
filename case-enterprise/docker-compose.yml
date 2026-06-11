@@ -1,0 +1,221 @@
+version: '3.8'
+
+services:
+  postgres:
+    build:
+      context: ./docker/postgres
+    ports:
+      - "${ERP_POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    environment:
+      - POSTGRES_USER=${ERP_POSTGRES_USER}
+      - POSTGRES_PASSWORD=${ERP_POSTGRES_PASSWORD}
+      - POSTGRES_DB=${ERP_POSTGRES_DB}
+    networks:
+      - enterprise_network
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_data:/data
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - enterprise_network
+
+  minio-setup:
+    image: minio/mc:latest
+    volumes:
+      - ./docker/minio/setup.sh:/setup.sh
+    entrypoint: /bin/bash /setup.sh
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+    networks:
+      - enterprise_network
+
+  iceberg-rest:
+    image: tabulario/iceberg-rest:latest
+    ports:
+      - "${ICEBERG_REST_PORT:-8181}:8181"
+    environment:
+      - CATALOG_WAREHOUSE=${ICEBERG_CATALOG_WAREHOUSE}
+      - CATALOG_IO__IMPL=org.apache.iceberg.aws.s3.S3FileIO
+      - CATALOG_S3_ENDPOINT=http://minio:9000
+      - CATALOG_S3_PATH__STYLE__ACCESS=true
+      - AWS_ACCESS_KEY_ID=${MINIO_ROOT_USER}
+      - AWS_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD}
+      - AWS_REGION=us-east-1
+    depends_on:
+      minio-setup:
+        condition: service_completed_successfully
+    networks:
+      - enterprise_network
+
+  airflow-postgres:
+    image: postgres:16
+    ports:
+      - "${AIRFLOW_PG_PORT:-5434}:5432"
+    volumes:
+      - airflow_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    environment:
+      - POSTGRES_USER=${AIRFLOW_PG_USER}
+      - POSTGRES_PASSWORD=${AIRFLOW_PG_PASSWORD}
+      - POSTGRES_DB=${AIRFLOW_PG_DB}
+    networks:
+      - enterprise_network
+
+  airflow-init:
+    build:
+      context: .
+      dockerfile: ./docker/airflow/Dockerfile
+    command: bash -c "airflow db migrate && airflow users create --username ${AIRFLOW_ADMIN_USER:-airflow} --password ${AIRFLOW_ADMIN_PASSWORD:-airflow} --firstname Admin --lastname User --role Admin --email admin@example.com || true"
+    depends_on:
+      airflow-postgres:
+        condition: service_healthy
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=${AIRFLOW__CORE__EXECUTOR}
+      - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW__CORE__FERNET_KEY}
+      - AIRFLOW__CORE__LOAD_EXAMPLES=${AIRFLOW__CORE__LOAD_EXAMPLES}
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN}
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./dlt_pipelines:/opt/airflow/dlt_pipelines
+      - ./transform_dbt:/opt/airflow/transform_dbt
+      - ./transform_ibis:/opt/airflow/transform_ibis
+      - ./seed:/opt/airflow/seed
+    networks:
+      - enterprise_network
+
+  airflow-webserver:
+    build:
+      context: .
+      dockerfile: ./docker/airflow/Dockerfile
+    command: airflow webserver
+    ports:
+      - "8080:8080"
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      iceberg-rest:
+        condition: service_started
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=${AIRFLOW__CORE__EXECUTOR}
+      - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW__CORE__FERNET_KEY}
+      - AIRFLOW__CORE__LOAD_EXAMPLES=${AIRFLOW__CORE__LOAD_EXAMPLES}
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN}
+      - ERP_DATABASE_URL=postgresql://${ERP_POSTGRES_USER}:${ERP_POSTGRES_PASSWORD}@postgres:5432/${ERP_POSTGRES_DB}
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT}
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+      - MINIO_BUCKET=${MINIO_BUCKET}
+      - ICEBERG_CATALOG_NAME=${ICEBERG_CATALOG_NAME}
+      - PYICEBERG_CATALOG__DEFAULT__URI=${PYICEBERG_CATALOG__DEFAULT__URI}
+      - PYICEBERG_CATALOG__DEFAULT__S3__ENDPOINT=${PYICEBERG_CATALOG__DEFAULT__S3__ENDPOINT}
+      - PYICEBERG_CATALOG__DEFAULT__S3__ACCESS_KEY_ID=${PYICEBERG_CATALOG__DEFAULT__S3__ACCESS_KEY_ID}
+      - PYICEBERG_CATALOG__DEFAULT__S3__SECRET_ACCESS_KEY=${PYICEBERG_CATALOG__DEFAULT__S3__SECRET_ACCESS_KEY}
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./dlt_pipelines:/opt/airflow/dlt_pipelines
+      - ./transform_dbt:/opt/airflow/transform_dbt
+      - ./transform_ibis:/opt/airflow/transform_ibis
+      - ./seed:/opt/airflow/seed
+      - airflow_logs:/opt/airflow/logs
+    networks:
+      - enterprise_network
+
+  airflow-scheduler:
+    build:
+      context: .
+      dockerfile: ./docker/airflow/Dockerfile
+    command: airflow scheduler
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      iceberg-rest:
+        condition: service_started
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=${AIRFLOW__CORE__EXECUTOR}
+      - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW__CORE__FERNET_KEY}
+      - AIRFLOW__CORE__LOAD_EXAMPLES=${AIRFLOW__CORE__LOAD_EXAMPLES}
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN}
+      - ERP_DATABASE_URL=postgresql://${ERP_POSTGRES_USER}:${ERP_POSTGRES_PASSWORD}@postgres:5432/${ERP_POSTGRES_DB}
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT}
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+      - MINIO_BUCKET=${MINIO_BUCKET}
+      - ICEBERG_CATALOG_NAME=${ICEBERG_CATALOG_NAME}
+      - PYICEBERG_CATALOG__DEFAULT__URI=${PYICEBERG_CATALOG__DEFAULT__URI}
+      - PYICEBERG_CATALOG__DEFAULT__S3__ENDPOINT=${PYICEBERG_CATALOG__DEFAULT__S3__ENDPOINT}
+      - PYICEBERG_CATALOG__DEFAULT__S3__ACCESS_KEY_ID=${PYICEBERG_CATALOG__DEFAULT__S3__ACCESS_KEY_ID}
+      - PYICEBERG_CATALOG__DEFAULT__S3__SECRET_ACCESS_KEY=${PYICEBERG_CATALOG__DEFAULT__S3__SECRET_ACCESS_KEY}
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./dlt_pipelines:/opt/airflow/dlt_pipelines
+      - ./transform_dbt:/opt/airflow/transform_dbt
+      - ./transform_ibis:/opt/airflow/transform_ibis
+      - ./seed:/opt/airflow/seed
+      - airflow_logs:/opt/airflow/logs
+    networks:
+      - enterprise_network
+
+  streamlit:
+    build:
+      context: .
+      dockerfile: ./docker/streamlit/Dockerfile
+    ports:
+      - "${STREAMLIT_PORT:-8502}:8502"
+    depends_on:
+      iceberg-rest:
+        condition: service_started
+    environment:
+      - MINIO_ENDPOINT=http://minio:9000
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+      - MINIO_BUCKET=${MINIO_BUCKET}
+      - PYICEBERG_CATALOG__DEFAULT__URI=http://iceberg-rest:8181
+      - PYICEBERG_CATALOG__DEFAULT__S3__ENDPOINT=http://minio:9000
+      - PYICEBERG_CATALOG__DEFAULT__S3__ACCESS_KEY_ID=${MINIO_ROOT_USER}
+      - PYICEBERG_CATALOG__DEFAULT__S3__SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD}
+    volumes:
+      - ./dashboard:/app
+    networks:
+      - enterprise_network
+
+volumes:
+  postgres_data:
+  minio_data:
+  airflow_pg_data:
+  airflow_logs:
+
+networks:
+  enterprise_network:
+    driver: bridge

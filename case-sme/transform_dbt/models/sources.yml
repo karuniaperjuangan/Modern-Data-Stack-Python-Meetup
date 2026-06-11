@@ -1,0 +1,12 @@
+version: 2
+sources:
+  - name: raw
+    schema: raw_dlt # DLT loads to raw_dlt schema
+    tables:
+      - name: branches
+      - name: products
+      - name: orders
+      - name: order_items
+      - name: suppliers
+      - name: ingredients
+      - name: inventory

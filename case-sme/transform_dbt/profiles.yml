@@ -1,0 +1,12 @@
+sme_bebek_goreng:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('POSTGRES_HOST', 'postgres') }}"
+      port: 5432
+      user: "{{ env_var('POSTGRES_USER', 'sme_user') }}"
+      pass: "{{ env_var('POSTGRES_PASSWORD', 'sme_password_2024') }}"
+      dbname: "{{ env_var('POSTGRES_DB', 'sme_db') }}"
+      schema: public
+      threads: 4

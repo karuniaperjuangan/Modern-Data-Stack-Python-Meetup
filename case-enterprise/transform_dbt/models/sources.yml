@@ -1,0 +1,14 @@
+version: 2
+sources:
+  - name: iceberg_raw
+    schema: sap
+    loader: pyiceberg
+    tables:
+      - name: sales_orders
+      - name: sales_items
+      - name: customers
+      - name: inventory_movements
+      - name: materials
+      - name: distributors
+      - name: ecommerce_orders
+      - name: gl_postings

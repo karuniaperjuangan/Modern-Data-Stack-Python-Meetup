@@ -1,0 +1,20 @@
+version: 2
+models:
+  - name: stg_sales_orders
+    columns:
+      - name: order_id
+        tests:
+          - unique
+          - not_null
+  - name: stg_sales_items
+    columns:
+      - name: item_id
+        tests:
+          - unique
+          - not_null
+  - name: stg_materials
+    columns:
+      - name: material_id
+        tests:
+          - unique
+          - not_null
