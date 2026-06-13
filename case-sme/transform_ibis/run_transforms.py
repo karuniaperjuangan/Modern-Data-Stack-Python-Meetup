@@ -1,5 +1,8 @@
 import os
 import ibis
+import sys
+
+sys.path.append(os.path.dirname(__file__))
 import models
 
 def main():

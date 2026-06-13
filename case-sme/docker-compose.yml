@@ -9,7 +9,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -27,7 +27,7 @@ services:
     volumes:
       - airflow_pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
+      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -51,6 +51,7 @@ services:
       - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW__CORE__FERNET_KEY}
       - AIRFLOW__CORE__LOAD_EXAMPLES=${AIRFLOW__CORE__LOAD_EXAMPLES}
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN}
+      - DLT_PROJECT_DIR=/opt/airflow/dlt_pipelines
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./dlt_pipelines:/opt/airflow/dlt_pipelines
@@ -82,6 +83,7 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_HOST=postgres
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - DLT_PROJECT_DIR=/opt/airflow/dlt_pipelines
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./dlt_pipelines:/opt/airflow/dlt_pipelines
@@ -112,6 +114,7 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_HOST=postgres
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - DLT_PROJECT_DIR=/opt/airflow/dlt_pipelines
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./dlt_pipelines:/opt/airflow/dlt_pipelines
