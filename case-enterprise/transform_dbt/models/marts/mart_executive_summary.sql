@@ -1,3 +1,5 @@
+{{ config(materialized='external', location='s3://lakehouse/warehouse/marts/mart_executive_summary/mart_executive_summary.parquet') }}
+
 WITH channel_sales AS (
     SELECT * FROM {{ ref('int_channel_sales') }}
 ),

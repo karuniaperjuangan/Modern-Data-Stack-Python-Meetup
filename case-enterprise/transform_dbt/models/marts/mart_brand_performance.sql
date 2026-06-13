@@ -1,3 +1,5 @@
+{{ config(materialized='external', location='s3://lakehouse/warehouse/marts/mart_brand_performance/mart_brand_performance.parquet') }}
+
 WITH product_perf AS (
     SELECT 
         brand,

@@ -87,5 +87,74 @@ def register_all():
         target_dir = f"lakehouse/raw/raw/{folder_name}"
         register_jsonl_as_iceberg(catalog, s3_fs, "sap", table_name, target_dir)
 
+def register_parquet_as_iceberg(catalog, s3_fs, namespace, table_name, s3_dir):
+    """Scan Parquet filesystem target folder in S3 and register as Iceberg table"""
+    import pyarrow.parquet as pq
+    try:
+        file_infos = s3_fs.get_file_info(FileSelector(s3_dir, recursive=True))
+    except Exception as e:
+        print(f"⚠️ Failed to list directory {s3_dir}: {e}")
+        return
+
+    parquet_files = [f.path for f in file_infos if f.type == 2 and f.path.endswith(".parquet")]
+    if not parquet_files:
+        print(f"⚠️ No parquet files found in {s3_dir} for {table_name}")
+        return
+
+    print(f"Reading schema and files from {len(parquet_files)} Parquet files in {s3_dir}...")
+    all_tables = []
+    for f in parquet_files:
+        table = pq.read_table(f, filesystem=s3_fs)
+        all_tables.append(table)
+
+    combined_table = pa.concat_tables(all_tables)
+    arrow_schema = combined_table.schema
+
+    # Create namespace if not exists
+    try:
+        catalog.create_namespace(namespace)
+    except Exception:
+        pass  # already exists
+
+    table_fullname = f"{namespace}.{table_name}"
+    
+    # Check if table exists, drop to re-create
+    try:
+        catalog.drop_table(table_fullname)
+    except Exception:
+        pass
+
+    # Create and load
+    iceberg_table = catalog.create_table(
+        table_fullname,
+        schema=arrow_schema,
+    )
+    
+    iceberg_table.overwrite(combined_table)
+    print(f"✅ Registered Iceberg table {table_fullname} containing {len(combined_table)} rows.")
+
+def register_marts():
+    print("Initializing PyIceberg catalog connection for marts...")
+    catalog = get_catalog()
+    
+    s3_fs = S3FileSystem(
+        endpoint_override=os.environ.get("PYICEBERG_CATALOG__DEFAULT__S3__ENDPOINT", "http://minio:9000"),
+        access_key=os.environ.get("PYICEBERG_CATALOG__DEFAULT__S3__ACCESS_KEY_ID", "minioadmin"),
+        secret_key=os.environ.get("PYICEBERG_CATALOG__DEFAULT__S3__SECRET_ACCESS_KEY", "minioadmin")
+    )
+    
+    marts_tables = [
+        ("mart_brand_performance", "mart_brand_performance"),
+        ("mart_channel_comparison", "mart_channel_comparison"),
+        ("mart_distribution_network", "mart_distribution_network"),
+        ("mart_executive_summary", "mart_executive_summary"),
+        ("mart_inventory_optimization", "mart_inventory_optimization")
+    ]
+    
+    for table_name, folder_name in marts_tables:
+        target_dir = f"lakehouse/warehouse/marts/{folder_name}"
+        register_parquet_as_iceberg(catalog, s3_fs, "marts", table_name, target_dir)
+
 if __name__ == "__main__":
     register_all()
+    register_marts()

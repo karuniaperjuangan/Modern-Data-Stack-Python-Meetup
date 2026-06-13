@@ -48,6 +48,10 @@ with DAG(
         from dlt_pipelines.iceberg_helper import register_all
         register_all()
 
+    def register_marts_iceberg_tables():
+        from dlt_pipelines.iceberg_helper import register_marts
+        register_marts()
+
     def run_ibis_transforms():
         from transform_ibis.run_transforms import main as ibis_main
         ibis_main()
@@ -87,6 +91,11 @@ with DAG(
         bash_command='cd /opt/airflow/transform_dbt && dbt run --profiles-dir .',
     )
 
+    register_marts_iceberg = PythonOperator(
+        task_id='register_marts_iceberg_tables',
+        python_callable=register_marts_iceberg_tables,
+    )
+
     ibis_transforms = PythonOperator(
         task_id='ibis_transforms',
         python_callable=run_ibis_transforms,
@@ -95,4 +104,4 @@ with DAG(
     # Dependencies
     seed >> [dlt_sales, dlt_inventory, dlt_finance, dlt_ecommerce]
     [dlt_sales, dlt_inventory, dlt_finance, dlt_ecommerce] >> register_iceberg
-    register_iceberg >> dbt_run >> ibis_transforms
+    register_iceberg >> dbt_run >> register_marts_iceberg >> ibis_transforms

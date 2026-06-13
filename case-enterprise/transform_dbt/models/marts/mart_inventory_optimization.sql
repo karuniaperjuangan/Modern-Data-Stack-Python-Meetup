@@ -1,3 +1,5 @@
+{{ config(materialized='external', location='s3://lakehouse/warehouse/marts/mart_inventory_optimization/mart_inventory_optimization.parquet') }}
+
 WITH aging AS (
     SELECT * FROM {{ ref('int_inventory_aging') }}
 )
